@@ -212,33 +212,33 @@ def run_training_pipeline(
     
     try:
         # Step 1: Preprocess corpus (if needed)
-        if preprocess:
-            print("Step 1/3: Preprocessing corpus...")
+        # if preprocess:
+        #     print("Step 1/3: Preprocessing corpus...")
             
-            # Check if raw data exists
-            if not os.path.exists(TINY_STORIES_TRAIN_PATH):
-                print(f"✗ Training data not found: {TINY_STORIES_TRAIN_PATH}")
-                print("   Run setup first: python setup&run.py --setup")
-                return False
+        #     # Check if raw data exists
+        #     if not os.path.exists(TINY_STORIES_TRAIN_PATH):
+        #         print(f"✗ Training data not found: {TINY_STORIES_TRAIN_PATH}")
+        #         print("   Run setup first: python setup&run.py --setup")
+        #         return False
             
-            preprocessed_path = preprocess_corpus(
-                input_path=TINY_STORIES_TRAIN_PATH,
-                output_path=PRO_TINY_STORIES_TRAIN_PATH,
-                max_size_mb=max_corpus_size_mb
-            )
-        else:
-            print("Step 1/3: Using existing preprocessed corpus...")
-            preprocessed_path = PRO_TINY_STORIES_TRAIN_PATH
+        #     preprocessed_path = preprocess_corpus(
+        #         input_path=TINY_STORIES_TRAIN_PATH,
+        #         output_path=PRO_TINY_STORIES_TRAIN_PATH,
+        #         max_size_mb=max_corpus_size_mb
+        #     )
+        # else:
+        #     print("Step 1/3: Using existing preprocessed corpus...")
+        #     preprocessed_path = PRO_TINY_STORIES_TRAIN_PATH
             
-            if not os.path.exists(preprocessed_path):
-                print(f"✗ Preprocessed data not found: {preprocessed_path}")
-                print("   Run with --preprocess flag")
-                return False
+        #     if not os.path.exists(preprocessed_path):
+        #         print(f"✗ Preprocessed data not found: {preprocessed_path}")
+        #         print("   Run with --preprocess flag")
+        #         return False
         
         # Step 2: Train tokenizer
         print("\nStep 2/3: Training tokenizer...")
         tokenizer = train_tokenizer(
-            corpus_path=preprocessed_path,
+            corpus_path=TINY_STORIES_TRAIN_PATH,
             vocab_size=vocab_size,
             special_tokens=DEFAULT_SPECIAL_TOKENS
         )

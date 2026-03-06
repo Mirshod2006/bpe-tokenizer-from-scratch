@@ -8,10 +8,8 @@ This script demonstrates:
 3. Basic import checks
 """
 
-import os
 import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, '/home/mirshod/Desktop/bpe-tokenizer-from-scratch')
 
 def test_imports():
     """Test that all required modules can be imported."""
