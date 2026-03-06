@@ -39,8 +39,8 @@ from src.bpe.constants import (
     DEFAULT_VOCAB_SIZE,
     DEFAULT_SPECIAL_TOKENS
 )
-from scripts.preprocess_corpus import preprocess_text_string
-
+from scripts.preprocess_corpus import preprocess_corpus
+from scripts.download_data import download_file, fetch_tiny_stories_dataset
 
 # ============================================================================
 # CONFIGURATION
@@ -68,71 +68,6 @@ def create_directories():
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
         print(f"✓ Created/verified directory: {directory}")
-
-
-def download_file(url: str, output_path: str, chunk_size: int = 8192):
-    """
-    Download a file from URL with progress indication.
-    
-    Args:
-        url: URL to download from
-        output_path: Local path to save file
-        chunk_size: Size of chunks to download
-    """
-    print(f"📥 Downloading: {url}")
-    print(f"   Saving to: {output_path}")
-    
-    try:
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-        
-        # Get total file size if available
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded = 0
-        
-        with open(output_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=chunk_size):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    
-                    # Show progress
-                    if total_size > 0:
-                        percent = (downloaded / total_size) * 100
-                        print(f"   Progress: {percent:.1f}%", end='\r')
-        
-        print(f"\n✓ Downloaded successfully: {output_path}")
-        
-    except requests.exceptions.RequestException as e:
-        print(f"✗ Error downloading {url}: {e}")
-        raise
-
-
-def fetch_tiny_stories_dataset():
-    """Download TinyStories training and validation datasets."""
-    print("\n" + "="*80)
-    print("DOWNLOADING TINYSTORIES DATASET")
-    print("="*80 + "\n")
-    
-    # Check if files already exist
-    if os.path.exists(TINY_STORIES_TRAIN_PATH) and os.path.exists(TINY_STORIES_VALID_PATH):
-        print("⚠ Dataset files already exist. Skipping download.")
-        print(f"  Train: {TINY_STORIES_TRAIN_PATH}")
-        print(f"  Valid: {TINY_STORIES_VALID_PATH}")
-        
-        response = input("\nOverwrite existing files? (y/N): ").strip().lower()
-        if response != 'y':
-            print("Skipping download.")
-            return
-    
-    # Download training set
-    download_file(TINY_STORIES_URL_TRAIN, TINY_STORIES_TRAIN_PATH)
-    
-    # Download validation set
-    download_file(TINY_STORIES_URL_VALID, TINY_STORIES_VALID_PATH)
-    
-    print("\n✅ TinyStories dataset downloaded successfully!")
-
 
 def setup():
     """
@@ -164,68 +99,6 @@ def setup():
         import traceback
         traceback.print_exc()
         return False
-
-
-# ============================================================================
-# PREPROCESSING FUNCTIONS
-# ============================================================================
-
-def preprocess_corpus(
-    input_path: str,
-    output_path: str,
-    max_size_mb: Optional[int] = None
-) -> str:
-    """
-    Preprocess corpus file using the filtering pipeline.
-    
-    Args:
-        input_path: Path to raw corpus file
-        output_path: Path to save preprocessed corpus
-        max_size_mb: Optional limit on input file size (in MB)
-    
-    Returns:
-        Path to preprocessed file
-    """
-    print(f"\n📝 Preprocessing: {input_path}")
-    
-    # Check file exists
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Input file not found: {input_path}")
-    
-    # Check file size
-    file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
-    print(f"   File size: {file_size_mb:.2f} MB")
-    
-    if max_size_mb and file_size_mb > max_size_mb:
-        print(f"   ⚠ File exceeds {max_size_mb} MB limit. Processing first {max_size_mb} MB only.")
-    
-    # Read and preprocess
-    print("   Applying filters...")
-    with open(input_path, 'r', encoding='utf-8') as f:
-        # Read limited size if specified
-        if max_size_mb:
-            max_bytes = max_size_mb * 1024 * 1024
-            text = f.read(max_bytes)
-        else:
-            text = f.read()
-    
-    # Apply preprocessing pipeline
-    cleaned_text = preprocess_text_string(
-        text,
-        normalize_urls=True,
-        unicode_form='NFC'
-    )
-    
-    # Save preprocessed text
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(cleaned_text)
-    
-    output_size_mb = os.path.getsize(output_path) / (1024 * 1024)
-    print(f"   ✓ Saved preprocessed text: {output_path}")
-    print(f"   Output size: {output_size_mb:.2f} MB")
-    
-    return output_path
 
 
 # ============================================================================

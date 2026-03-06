@@ -1,13 +1,9 @@
 import re
 import os
-import sys
 import html
 import unicodedata
 from collections import Counter
-from typing import List, Tuple, Dict
-
-from src.bpe.constants import GPT2_PATTERN
-from src.bpe.bpe_merger import BPEMerger
+from typing import Optional, List
 
 
 # ============================================================================
@@ -200,58 +196,6 @@ def normalize_whitespace(text: str) -> str:
 # MAIN PREPROCESSING PIPELINE
 # ============================================================================
 
-def preprocess_corpus(
-    file_path: str,
-    normalize_urls: bool = True,
-    unicode_form: str = 'NFC'
-) -> str:
-    """
-    Complete preprocessing pipeline for corpus text.
-    
-    Pipeline order:
-    1. Unicode normalization
-    2. HTML entity decoding
-    3. URL/email normalization
-    4. Control character removal
-    5. Whitespace normalization
-    6. Pre-tokenization (regex-based splitting)
-    
-    Args:
-        file_path: Path to corpus file
-        normalize_urls: Whether to replace URLs/emails with tokens
-        unicode_form: Unicode normalization form ('NFC', 'NFKC', etc.)
-        use_gpt2_pattern: Use GPT2 pattern (requires regex module) or simple pattern
-    
-    Returns:
-        List of pre-tokenized text chunks
-    """
-    # Read file
-    with open(file_path, 'r', encoding='utf-8') as f:
-        text = f.read()
-    
-    # Apply filters in order
-    text = normalize_unicode(text, form=unicode_form)
-    text = decode_html_entities(text)
-    
-    if normalize_urls:
-        text = normalize_urls_and_emails(text, replace_with=' <URL> ')
-    
-    text = remove_control_characters(text)
-    text = normalize_whitespace(text)
-    
-    # # Pre-tokenization
-    # if use_gpt2_pattern:
-    #     try:
-    #         tokens = pretokenize_with_gpt2_pattern(text)
-    #     except (ImportError, Exception) as e:
-    #         print(f"Warning: Could not use GPT2 pattern ({e}). Falling back to simple tokenization.")
-    #         tokens = pretokenize_simple(text)
-    # else:
-    #     tokens = pretokenize_simple(text)
-    
-    return text
-
-
 def preprocess_text_string(
     text: str,
     normalize_urls: bool = True,
@@ -281,3 +225,59 @@ def preprocess_text_string(
     
     return text
 
+def preprocess_corpus(
+    input_path: str,
+    output_path: str,
+    max_size_mb: Optional[int] = None
+) -> str:
+    """
+    Preprocess corpus file using the filtering pipeline.
+    
+    Args:
+        input_path: Path to raw corpus file
+        output_path: Path to save preprocessed corpus
+        max_size_mb: Optional limit on input file size (in MB)
+    
+    Returns:
+        Path to preprocessed file
+    """
+    print(f"\n📝 Preprocessing: {input_path}")
+    
+    # Check file exists
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    
+    # Check file size
+    file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
+    print(f"   File size: {file_size_mb:.2f} MB")
+    
+    if max_size_mb and file_size_mb > max_size_mb:
+        print(f"   ⚠ File exceeds {max_size_mb} MB limit. Processing first {max_size_mb} MB only.")
+    
+    # Read and preprocess
+    print("   Applying filters...")
+    with open(input_path, 'r', encoding='utf-8') as f:
+        # Read limited size if specified
+        if max_size_mb:
+            max_bytes = max_size_mb * 1024 * 1024
+            text = f.read(max_bytes)
+        else:
+            text = f.read()
+    
+    # Apply preprocessing pipeline
+    cleaned_text = preprocess_text_string(
+        text,
+        normalize_urls=True,
+        unicode_form='NFC'
+    )
+    
+    # Save preprocessed text
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(cleaned_text)
+    
+    output_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"   ✓ Saved preprocessed text: {output_path}")
+    print(f"   Output size: {output_size_mb:.2f} MB")
+    
+    return output_path
