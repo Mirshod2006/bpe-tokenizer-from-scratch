@@ -3,3 +3,5 @@ data
 __pycache__
 notebooks/.ipynb_checkpoints
 src/__pycache__
+src/bpe/__pycache__
+src/scripts/__pycache__
