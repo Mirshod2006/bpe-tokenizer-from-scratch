@@ -1,3 +1,4 @@
 # Core dependencies
 regex>=2023.0.0  # Required for GPT2 pattern matching with \p{L} Unicode properties
 requests>=2.28.0  # Required for downloading datasets
+tiktoken>=0.5.0  # Required for benchmarking against OpenAI tokenizers

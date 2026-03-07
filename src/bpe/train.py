@@ -3,8 +3,8 @@ train.py — BPE training logic for GPT-4 style tokenizer.
 Trains a vocabulary from raw text using byte-level BPE.
 """
 
-from vocab import Vocab
-from utils import find_freq_pair, replace_pair, preprocess_text_gpt4, bytes_to_unicode
+from .vocab import Vocab
+from .utils import find_freq_pair, replace_pair, preprocess_text_gpt4, bytes_to_unicode
 
 
 class BPETrainer:

@@ -3,9 +3,9 @@ tokenizer.py — GPT-4 BPE Tokenizer.
 Ties together Vocab, BPETrainer, Encoder, and Decoder.
 """
 
-from vocab import Vocab
-from train import BPETrainer
-from encode_decode import Encoder, Decoder
+from .vocab import Vocab
+from .train import BPETrainer
+from .encode_decode import Encoder, Decoder
 
 
 class GPT4Tokenizer:

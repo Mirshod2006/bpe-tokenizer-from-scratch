@@ -4,8 +4,8 @@ Handles text -> token IDs and token IDs -> text.
 """
 
 import re
-from vocab import Vocab
-from utils import preprocess_text_gpt4, bytes_to_unicode
+from .vocab import Vocab
+from .utils import preprocess_text_gpt4, bytes_to_unicode
 
 
 class Encoder:

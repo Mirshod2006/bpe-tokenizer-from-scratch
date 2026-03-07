@@ -32,7 +32,7 @@ from bpe.constants import (
     DEFAULT_VOCAB_SIZE,
     DEFAULT_SPECIAL_TOKENS
 )
-from scripts.download_data import download_file, fetch_tiny_stories_dataset
+from src.bpe.download_data import fetch_tiny_stories_dataset
 from bpe.utils import preprocess_corpus
 
 # ============================================================================
