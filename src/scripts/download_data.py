@@ -4,7 +4,7 @@ import requests
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
-from src.bpe.constants import (TINY_STORIES_URL_TRAIN, TINY_STORIES_URL_VALID, WIKITEXT103_URL, 
+from bpe.constants import (TINY_STORIES_URL_TRAIN, TINY_STORIES_URL_VALID, WIKITEXT103_URL, 
                                FINEWEB_URL,
                                TINY_STORIES_TRAIN_PATH, TINY_STORIES_VALID_PATH, 
                                WIKITEXT103_PATH, FINEWEB_PATH)

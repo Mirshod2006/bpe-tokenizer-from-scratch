@@ -19,7 +19,7 @@ def test_imports():
         from src.bpe.tokenizer import BPETokenizer
         print("  ✓ BPETokenizer")
         
-        from src.bpe.trainer import BPETrainer
+        from src.bpe.train import BPETrainer
         print("  ✓ BPETrainer")
         
         from src.bpe.constants import (

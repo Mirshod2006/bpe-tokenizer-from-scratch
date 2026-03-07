@@ -18,14 +18,14 @@ A complete implementation of Byte Pair Encoding (BPE) tokenizer with comprehensi
 pip install -r requirements.txt
 
 # Test everything works
-python test_setup.py
+python tests/test_setup.py
 
 # Run full pipeline (download data + train tokenizer)
-python setup&run.py
+python src/setup_and_run.py
 
 # Or step by step:
-python setup&run.py --setup    # Download TinyStories dataset
-python setup&run.py --train    # Train tokenizer
+python src/setup_and_run.py --setup    # Download TinyStories dataset
+python src/setup_and_run.py --train    # Train tokenizer
 ```
 
 ## Usage
@@ -34,13 +34,13 @@ python setup&run.py --train    # Train tokenizer
 
 ```bash
 # Default: 50K vocabulary
-python setup&run.py
+python src/setup_and_run.py
 
 # Custom vocabulary size
-python setup&run.py --vocab-size 30000
+python src/setup_and_run.py --vocab-size 30000
 
 # Fast training (first 100MB only)
-python setup&run.py --max-size 100
+python src/setup_and_run.py --max-size 100
 ```
 
 ### Using Trained Tokenizer
@@ -134,10 +134,10 @@ pip install -r requirements.txt
 
 ```bash
 # Quick test (no dataset download)
-python test_setup.py
+python tests/test_setup.py
 
 # Test preprocessing filters
-python scripts/test_filters.py
+python src/scripts/test_filters.py
 ```
 
 ## Examples
@@ -146,26 +146,26 @@ python scripts/test_filters.py
 
 ```bash
 # Train on first 100MB with small vocab (2-3 minutes)
-python setup&run.py --max-size 100 --vocab-size 10000
+python src/setup_and_run.py --max-size 100 --vocab-size 10000
 ```
 
 ### Production Training
 
 ```bash
 # Full dataset with 50K vocab (30-60 minutes)
-python setup&run.py --vocab-size 50000
+python src/setup_and_run.py --vocab-size 50000
 ```
 
 ### Retrain with Different Vocab Size
 
 ```bash
 # Reuse preprocessed data, change vocab size only
-python setup&run.py --train --no-preprocess --vocab-size 30000
+python src/setup_and_run.py --train --no-preprocess --vocab-size 30000
 ```
 
 ## Architecture
 
-**Design Choice**: Single `setup&run.py` file for the entire pipeline.
+**Design Choice**: Single `src/setup_and_run.py` file for the entire pipeline.
 
 **Why?**
 - Sequential operations (setup → preprocess → train → save)

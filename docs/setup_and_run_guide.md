@@ -6,11 +6,11 @@ Complete guide for setting up and training the BPE tokenizer.
 
 ```bash
 # Full pipeline (download data + train tokenizer)
-python setup&run.py
+python src/setup_and_run.py
 
 # Or run steps separately:
-python setup&run.py --setup    # Download TinyStories dataset
-python setup&run.py --train    # Train tokenizer
+python src/setup_and_run.py --setup    # Download TinyStories dataset
+python src/setup_and_run.py --train    # Train tokenizer
 ```
 
 ## Command-Line Options
@@ -19,9 +19,9 @@ python setup&run.py --train    # Train tokenizer
 
 | Command | Description |
 |---------|-------------|
-| `python setup&run.py` | Run full pipeline (setup + train) |
-| `python setup&run.py --setup` | Only setup (download data) |
-| `python setup&run.py --train` | Only train (assumes data exists) |
+| `python src/setup_and_run.py` | Run full pipeline (setup + train) |
+| `python src/setup_and_run.py --setup` | Only setup (download data) |
+| `python src/setup_and_run.py --train` | Only train (assumes data exists) |
 
 ### Advanced Options
 
@@ -35,16 +35,16 @@ python setup&run.py --train    # Train tokenizer
 
 ```bash
 # Train with smaller vocabulary
-python setup&run.py --vocab-size 30000
+python src/setup_and_run.py --vocab-size 30000
 
 # Fast training on first 100MB only
-python setup&run.py --max-size 100
+python src/setup_and_run.py --max-size 100
 
 # Use existing preprocessed data
-python setup&run.py --train --no-preprocess
+python src/setup_and_run.py --train --no-preprocess
 
 # Download data only (for later training)
-python setup&run.py --setup
+python src/setup_and_run.py --setup
 ```
 
 ## What It Does
@@ -137,24 +137,24 @@ print(f"Vocabulary size: {tokenizer.get_vocab_size()}")
 
 ```bash
 # Train on first 100MB only (much faster)
-python setup&run.py --max-size 100 --vocab-size 10000
+python src/setup_and_run.py --max-size 100 --vocab-size 10000
 ```
 
 ### Full Production Training
 
 ```bash
 # Use full dataset with large vocabulary
-python setup&run.py --vocab-size 50000
+python src/setup_and_run.py --vocab-size 50000
 ```
 
 ### Skip Preprocessing (if already done)
 
 ```bash
 # Preprocess once
-python setup&run.py --train
+python src/setup_and_run.py --train
 
 # Later, retrain with different vocab size (reuse preprocessed data)
-python setup&run.py --train --no-preprocess --vocab-size 30000
+python src/setup_and_run.py --train --no-preprocess --vocab-size 30000
 ```
 
 ## Troubleshooting
@@ -163,7 +163,7 @@ python setup&run.py --train --no-preprocess --vocab-size 30000
 
 Run setup first:
 ```bash
-python setup&run.py --setup
+python src/setup_and_run.py --setup
 ```
 
 ### "Preprocessed data not found"
@@ -176,7 +176,7 @@ Either:
 
 Limit corpus size:
 ```bash
-python setup&run.py --max-size 100  # Use first 100MB only
+python src/setup_and_run.py --max-size 100  # Use first 100MB only
 ```
 
 ### Download fails

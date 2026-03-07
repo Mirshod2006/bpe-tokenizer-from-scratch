@@ -3,17 +3,10 @@ import os
 # Special tokens
 DEFAULT_SPECIAL_TOKENS = {"<|endoftext|>", "<unk>", "<pad>", "<s>", "</s>"}
 
-# GPT-2 specific
-GPT2_SPACE_TOKEN = "Ġ"  # Represents space in GPT-2 tokenization
-NEWLINE_TOKEN = "\n"
-
-CYRILLIC_UZBEK_RANGE = r'а-яА-ЯўҒғҚқҲҳЎ'
-LATIN_UZBEK_RANGE = r'a-zA-ZāĀâÂçÇĞğĢģīĪİıŁłÑñŅņŌōŖŗŞşŠšŢţŪūŪŪŽž'
+# CYRILLIC_UZBEK_RANGE = r'а-яА-ЯўҒғҚқҲҳЎ'
+# LATIN_UZBEK_RANGE = r'a-zA-ZāĀâÂçÇĞğĢģīĪİıŁłÑñŅņŌōŖŗŞşŠšŢţŪūŪŪŽž'
 # Default vocabulary size for training
 DEFAULT_VOCAB_SIZE = 50000
-
-# Pre-tokenization patterns
-GPT2_PATTERN = r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+"""
 
 # Url for downloading TinyStories dataset
 TINY_STORIES_URL_TRAIN = "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-train.txt"

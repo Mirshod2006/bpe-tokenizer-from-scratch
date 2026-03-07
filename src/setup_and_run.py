@@ -9,47 +9,41 @@ This script handles:
 4. Saving vocabulary and merge pairs
 
 Usage:
-    python setup&run.py --setup              # Only setup (download data)
-    python setup&run.py --train              # Only train (assumes data exists)
-    python setup&run.py --setup --train      # Full pipeline (setup + train)
-    python setup&run.py                      # Default: Full pipeline
+    python src/setup_and_run.py --setup              # Only setup (download data)
+    python src/setup_and_run.py --train              # Only train (assumes data exists)
+    python src/setup_and_run.py --setup --train      # Full pipeline (setup + train)
+    python src/setup_and_run.py                      # Default: Full pipeline
 """
 
 import os
 import sys
 import json
 import argparse
-import requests
-from pathlib import Path
 from typing import Optional
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.bpe.tokenizer import BPETokenizer
-from src.bpe.constants import (
-    TINY_STORIES_URL_TRAIN,
-    TINY_STORIES_URL_VALID,
+from bpe.tokenizer import GPT4Tokenizer
+from bpe.constants import (
     TINY_STORIES_TRAIN_PATH,
-    TINY_STORIES_VALID_PATH,
-    PRO_TINY_STORIES_TRAIN_PATH,
-    PRO_TINY_STORIES_VALID_PATH,
     TRAIN_DATA_DIR,
     PROCESSED_DATA_DIR,
     DEFAULT_VOCAB_SIZE,
     DEFAULT_SPECIAL_TOKENS
 )
-from scripts.preprocess_corpus import preprocess_corpus
 from scripts.download_data import download_file, fetch_tiny_stories_dataset
+from bpe.utils import preprocess_corpus
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-MODELS_DIR = "src/models"
+MODELS_DIR = "../models/"
 VOCAB_FILE = os.path.join(MODELS_DIR, "vocab.json")
 MERGES_FILE = os.path.join(MODELS_DIR, "merges.json")
 TOKENIZER_CONFIG_FILE = os.path.join(MODELS_DIR, "tokenizer_config.json")
+PRO_TINY_STORIES_TRAIN_PATH = os.path.join(PROCESSED_DATA_DIR, "tiny_stories_train_processed.txt")
 
 
 # ============================================================================
@@ -108,8 +102,8 @@ def setup():
 def train_tokenizer(
     corpus_path: str,
     vocab_size: int = DEFAULT_VOCAB_SIZE,
-    special_tokens: Optional[set] = None
-) -> BPETokenizer:
+    special_tokens: Optional[set[str]] = None
+) -> GPT4Tokenizer:
     """
     Train BPE tokenizer on preprocessed corpus.
     
@@ -119,7 +113,7 @@ def train_tokenizer(
         special_tokens: Set of special tokens to include
     
     Returns:
-        Trained BPETokenizer
+        Trained GPT4Tokenizer
     """
     print(f"\n🔧 Training BPE tokenizer...")
     print(f"   Corpus: {corpus_path}")
@@ -132,7 +126,7 @@ def train_tokenizer(
     print(f"   Corpus length: {len(text):,} characters")
     
     # Initialize tokenizer
-    tokenizer = BPETokenizer()
+    tokenizer = GPT4Tokenizer()
     
     # Set default special tokens if not provided
     if special_tokens is None:
@@ -148,19 +142,19 @@ def train_tokenizer(
         allowed_special=special_tokens
     )
     
-    actual_vocab_size = tokenizer.get_vocab_size()
+    actual_vocab_size = tokenizer.vocab_size()
     print(f"   ✓ Training complete!")
     print(f"   Actual vocab size: {actual_vocab_size:,}")
     
     return tokenizer
 
 
-def save_tokenizer(tokenizer: BPETokenizer, vocab_path: str, merges_path: str):
+def save_tokenizer(tokenizer: GPT4Tokenizer, vocab_path: str, merges_path: str):
     """
     Save trained tokenizer to disk.
     
     Args:
-        tokenizer: Trained BPETokenizer
+        tokenizer: Trained GPT4Tokenizer
         vocab_path: Path to save vocabulary
         merges_path: Path to save merges
     """
@@ -176,8 +170,8 @@ def save_tokenizer(tokenizer: BPETokenizer, vocab_path: str, merges_path: str):
     print(f"   ✓ Merges saved: {merges_path}")
     
     # Save configuration
-    config = {
-        "vocab_size": tokenizer.get_vocab_size(),
+    config: dict[str,int | list[str] | str] = {
+        "vocab_size": tokenizer.vocab_size(),
         "vocab_file": os.path.basename(vocab_path),
         "merges_file": os.path.basename(merges_path),
         "special_tokens": list(DEFAULT_SPECIAL_TOKENS),
@@ -212,33 +206,33 @@ def run_training_pipeline(
     
     try:
         # Step 1: Preprocess corpus (if needed)
-        # if preprocess:
-        #     print("Step 1/3: Preprocessing corpus...")
+        if preprocess:
+            print("Step 1/3: Preprocessing corpus...")
             
-        #     # Check if raw data exists
-        #     if not os.path.exists(TINY_STORIES_TRAIN_PATH):
-        #         print(f"✗ Training data not found: {TINY_STORIES_TRAIN_PATH}")
-        #         print("   Run setup first: python setup&run.py --setup")
-        #         return False
+            # Check if raw data exists
+            if not os.path.exists(TINY_STORIES_TRAIN_PATH):
+                print(f"✗ Training data not found: {TINY_STORIES_TRAIN_PATH}")
+                print("   Run setup first: python setup&run.py --setup")
+                return False
             
-        #     preprocessed_path = preprocess_corpus(
-        #         input_path=TINY_STORIES_TRAIN_PATH,
-        #         output_path=PRO_TINY_STORIES_TRAIN_PATH,
-        #         max_size_mb=max_corpus_size_mb
-        #     )
-        # else:
-        #     print("Step 1/3: Using existing preprocessed corpus...")
-        #     preprocessed_path = PRO_TINY_STORIES_TRAIN_PATH
+            preprocessed_path = preprocess_corpus(
+                input_path=TINY_STORIES_TRAIN_PATH,
+                output_path=PRO_TINY_STORIES_TRAIN_PATH,
+                max_size_mb=max_corpus_size_mb
+            )
+        else:
+            print("Step 1/3: Using existing preprocessed corpus...")
+            preprocessed_path = PRO_TINY_STORIES_TRAIN_PATH
             
-        #     if not os.path.exists(preprocessed_path):
-        #         print(f"✗ Preprocessed data not found: {preprocessed_path}")
-        #         print("   Run with --preprocess flag")
-        #         return False
+            if not os.path.exists(preprocessed_path):
+                print(f"✗ Preprocessed data not found: {preprocessed_path}")
+                print("   Run with --preprocess flag")
+                return False
         
         # Step 2: Train tokenizer
         print("\nStep 2/3: Training tokenizer...")
         tokenizer = train_tokenizer(
-            corpus_path=TINY_STORIES_TRAIN_PATH,
+            corpus_path=preprocessed_path,
             vocab_size=vocab_size,
             special_tokens=DEFAULT_SPECIAL_TOKENS
         )
