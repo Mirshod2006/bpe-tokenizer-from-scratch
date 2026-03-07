@@ -6,7 +6,7 @@ Handles text -> token IDs and token IDs -> text.
 import re
 from .vocab import Vocab
 from .utils import preprocess_text_gpt4, bytes_to_unicode
-
+import logging
 
 class Encoder:
     def __init__(self, vocab: Vocab, bpe_merges: dict[tuple[int, int], int], bpe_ranks: dict[tuple[str, str], int]):
@@ -34,12 +34,15 @@ class Encoder:
         """
         token_ids: list[int] = []
 
+        logging.info(f"Encoding text: {text[:50]}{'...' if len(text) > 50 else ''}")
         # Handle special tokens first
         if allowed_special:
             special_pattern = (
                 "(" + "|".join(re.escape(t) for t in sorted(allowed_special, key=len, reverse=True)) + ")"
             )
             parts = re.split(special_pattern, text)
+
+            logging.info(f"Split text into parts based on allowed special tokens.")
             for part in parts:
                 if part in allowed_special:
                     sid = self.vocab.get_id(part)
@@ -56,6 +59,8 @@ class Encoder:
     def _encode_ordinary(self, text: str) -> list[int]:
         """Encode text that contains no special tokens."""
         token_ids: list[int] = []
+
+        logging.info(f"Encoding ordinary text: {text[:20]}{'...' if len(text) > 20 else ''}")
         words = preprocess_text_gpt4(text)
         for word in words:
             word_ids = self._tokenize_word(word)
@@ -72,6 +77,7 @@ class Encoder:
 
         # Look up each character in vocab
         token_ids: list[int] = []
+
         for ch in byte_chars:
             tid = self.vocab.get_id(ch)
             if tid is None:
@@ -149,6 +155,8 @@ class Decoder:
         GPT-4 decodes by reconstructing the byte sequence, then decoding UTF-8.
         """
         tokens: list[str] = []
+
+        logging.info(f"Decoding token IDs: {token_ids[:10]}{'...' if len(token_ids) > 10 else ''}")
         for tid in token_ids:
             token = self.vocab.get_token(tid)
             if token is None:
@@ -158,4 +166,6 @@ class Decoder:
         # Concatenate all token strings, then map back from unicode symbols to bytes
         text = "".join(tokens)
         byte_values = [self._byte_decoder.get(ch, ord(ch)) for ch in text]
+        
+        logging.info(f"Decoded bytes: {byte_values[:10]}{'...' if len(byte_values) > 20 else ''}")
         return bytes(byte_values).decode("utf-8", errors="replace")

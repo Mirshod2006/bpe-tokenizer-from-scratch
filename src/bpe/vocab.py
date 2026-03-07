@@ -5,15 +5,20 @@ Handles loading, saving, and querying the token <-> ID mappings.
 
 import json
 from functools import lru_cache
+import logging
 
 
 class Vocab:
     def __init__(self):
+
+        logging.info("Initializing Vocab instance...")
         self.vocab: dict[int, str] = {}          # id -> token string
         self.inverse_vocab: dict[str, int] = {}  # token string -> id
 
     def build_from_chars(self, chars: list[str]):
         """Initialize vocab from a list of characters (used during training)."""
+
+        logging.info(f"Building vocab from {len(chars)} unique characters...")
         self.vocab = {i: ch for i, ch in enumerate(chars)}
         self.inverse_vocab = {ch: i for i, ch in self.vocab.items()}
 
@@ -43,10 +48,12 @@ class Vocab:
         return self.inverse_vocab.get(token)
 
     def save(self, path: str):
+        logging.info(f"Saving vocab to {path}")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.vocab, f, ensure_ascii=False, indent=2)
 
     def load(self, path: str):
+        logging.info(f"Loading vocab from {path}")
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         self.vocab = {int(k): v for k, v in data.items()}
@@ -54,6 +61,7 @@ class Vocab:
 
     def load_from_openai(self, path: str):
         """Load from OpenAI's encoder.json format (token -> id)."""
+        logging.info(f"Loading OpenAI vocab from {path}")
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         self.vocab = {int(v): k for k, v in data.items()}

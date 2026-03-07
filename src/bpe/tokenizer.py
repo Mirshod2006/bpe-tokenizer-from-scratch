@@ -6,6 +6,7 @@ Ties together Vocab, BPETrainer, Encoder, and Decoder.
 from .vocab import Vocab
 from .train import BPETrainer
 from .encode_decode import Encoder, Decoder
+import logging
 
 
 class GPT4Tokenizer:
@@ -30,6 +31,8 @@ class GPT4Tokenizer:
         self._decoder: Decoder | None = None
 
     def _build_components(self):
+
+        logging.info("Building encoder and decoder components...")
         self._encoder = Encoder(self.vocab, self.bpe_merges, self.bpe_ranks)
         self._decoder = Decoder(self.vocab)
 
@@ -37,8 +40,10 @@ class GPT4Tokenizer:
     #  Training
     # ------------------------------------------------------------------ #
 
-    def train(self, text: str, vocab_size: int, allowed_special: set[str] = {"<|endoftext|>"}):
+    def train(self, text: str, vocab_size: int, allowed_special: set[str] = {""}):
         """Train BPE tokenizer from scratch."""
+
+        logging.info("Training BPE tokenizer...")
         self._trainer = BPETrainer(self.vocab)
         self.bpe_merges = self._trainer.train(text, vocab_size, allowed_special)
         self._build_components()
@@ -55,6 +60,8 @@ class GPT4Tokenizer:
             vocab_path: Path to encoder.json
             merges_path: Path to vocab.bpe
         """
+
+        logging.info("Loading OpenAI pretrained vocab and merges...")
         self.vocab.load_from_openai(vocab_path)
         self._trainer = BPETrainer(self.vocab)
         self.bpe_ranks = self._trainer.load_merges_from_openai(merges_path)
@@ -82,12 +89,15 @@ class GPT4Tokenizer:
 
     def save(self, vocab_path: str, merges_path: str):
         """Save vocab and merges to disk."""
+        logging.info("Saving tokenizer...")
         self.vocab.save(vocab_path)
         if self._trainer:
             self._trainer.save_merges(merges_path)
 
     def load(self, vocab_path: str, merges_path: str):
         """Load a previously saved custom tokenizer."""
+
+        logging.info(f"Loading custom tokenizer from {vocab_path} and {merges_path}...")
         self.vocab.load(vocab_path)
         self._trainer = BPETrainer(self.vocab)
         self._trainer.load_merges(merges_path)
@@ -99,7 +109,9 @@ class GPT4Tokenizer:
     # ------------------------------------------------------------------ #
 
     def get_special_token_id(self, token: str) -> int | None:
+        logging.info(f"Getting ID for special token: {token}")
         return self.vocab.get_special_token_id(token)
 
     def vocab_size(self) -> int:
+        logging.info(f"Retrieving vocabulary size: {len(self.vocab)}")
         return len(self.vocab)

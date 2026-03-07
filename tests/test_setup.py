@@ -8,40 +8,14 @@ This script demonstrates:
 3. Basic import checks
 """
 
+import os
 import sys
+from typing import Any
+from src.bpe.utils import logging_setup
 sys.path.insert(0, '/home/mirshod/Desktop/bpe-tokenizer-from-scratch')
 
-def test_imports():
-    """Test that all required modules can be imported."""
-    print("Testing imports...")
-    
-    try:
-        from src.bpe.tokenizer import BPETokenizer
-        print("  ✓ BPETokenizer")
-        
-        from src.bpe.train import BPETrainer
-        print("  ✓ BPETrainer")
-        
-        from src.bpe.constants import (
-            DEFAULT_VOCAB_SIZE,
-            DEFAULT_SPECIAL_TOKENS,
-            TRAIN_DATA_DIR,
-            PROCESSED_DATA_DIR
-        )
-        print("  ✓ Constants")
-        
-        from scripts.preprocess_corpus import preprocess_text_string
-        print("  ✓ Preprocessing functions")
-        
-        print("\n✅ All imports successful!\n")
-        return True
-        
-    except ImportError as e:
-        print(f"\n✗ Import failed: {e}\n")
-        return False
 
-
-def test_directory_creation():
+def test_directory_creation() -> bool:
     """Test directory structure creation."""
     print("Testing directory creation...")
     
@@ -55,18 +29,18 @@ def test_directory_creation():
     
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
-        exists = os.path.isdir(directory)
+        exists: bool = os.path.isdir(directory)
         status = "✓" if exists else "✗"
         print(f"  {status} {directory}")
     
     print("\n✅ Directory structure created!\n")
+    return True
 
-
-def test_preprocessing():
+def test_preprocessing() -> bool:
     """Test preprocessing pipeline on sample text."""
     print("Testing preprocessing pipeline...")
     
-    from scripts.preprocess_corpus import preprocess_text_string
+    from src.bpe.utils import preprocess_text_gpt4
     
     sample_texts = [
         "Hello,   world!   Multiple    spaces.",
@@ -76,31 +50,32 @@ def test_preprocessing():
     ]
     
     for text in sample_texts:
-        cleaned = preprocess_text_string(text)
+        cleaned: list[str] = preprocess_text_gpt4(text)
         print(f"  Input:  {text[:50]}")
         print(f"  Output: {cleaned[:50]}\n")
     
     print("✅ Preprocessing works!\n")
+    return True
 
 
-def test_tokenizer_basic():
+def test_tokenizer_basic() -> bool:
     """Test basic tokenizer initialization and training on tiny sample."""
     print("Testing tokenizer on tiny sample...")
     
-    from src.bpe.tokenizer import BPETokenizer
+    from src.bpe.tokenizer import GPT4Tokenizer
     
     # Create tiny training sample
     sample_text = "Hello world! " * 100  # Repeat for enough data
     
     # Initialize and train
-    tokenizer = BPETokenizer()
+    tokenizer = GPT4Tokenizer()
     tokenizer.train(
         text=sample_text,
         vocab_size=300,  # Small vocab for fast test
         allowed_special={"<|endoftext|>"}
     )
     
-    print(f"  Trained vocab size: {tokenizer.get_vocab_size()}")
+    print(f"  Trained vocab size: {tokenizer.vocab_size()}")
     
     # Test encode/decode
     test_text = "Hello world!"
@@ -113,6 +88,7 @@ def test_tokenizer_basic():
     print(f"  Match:    {'✓' if decoded == test_text else '✗'}")
     
     print("\n✅ Tokenizer works!\n")
+    return True
 
 
 def main():
@@ -121,20 +97,19 @@ def main():
     print("SETUP & RUN - QUICK TEST")
     print("="*80 + "\n")
     
-    tests = [
-        ("Imports", test_imports),
+    tests: list[tuple[str, Any]] = [
         ("Directory Creation", test_directory_creation),
         ("Preprocessing", test_preprocessing),
         ("Tokenizer", test_tokenizer_basic),
     ]
     
-    results = []
+    results: list[tuple[str, bool]] = []
     
     for name, test_func in tests:
         print("-" * 80)
         try:
-            result = test_func()
-            results.append((name, True))
+            result: bool = test_func()
+            results.append((name, result))
         except Exception as e:
             print(f"✗ {name} failed: {e}")
             import traceback
@@ -169,4 +144,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logging_setup()
     main()

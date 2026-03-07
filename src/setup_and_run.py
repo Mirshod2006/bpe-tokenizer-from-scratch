@@ -14,7 +14,7 @@ Usage:
     python src/setup_and_run.py --setup --train      # Full pipeline (setup + train)
     python src/setup_and_run.py                      # Default: Full pipeline
 """
-
+import logging
 import os
 import sys
 import json
@@ -32,14 +32,14 @@ from bpe.constants import (
     DEFAULT_VOCAB_SIZE,
     DEFAULT_SPECIAL_TOKENS
 )
-from src.bpe.download_data import fetch_tiny_stories_dataset
-from bpe.utils import preprocess_corpus
+from bpe.download_data import fetch_tiny_stories_dataset
+from bpe.utils import preprocess_corpus, logging_setup
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-MODELS_DIR = "../models/"
+MODELS_DIR = "models/"
 VOCAB_FILE = os.path.join(MODELS_DIR, "vocab.json")
 MERGES_FILE = os.path.join(MODELS_DIR, "merges.json")
 TOKENIZER_CONFIG_FILE = os.path.join(MODELS_DIR, "tokenizer_config.json")
@@ -58,10 +58,10 @@ def create_directories():
         MODELS_DIR,
         "data",
     ]
-    
+    logging.info("Creating directories...")
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
-        print(f"✓ Created/verified directory: {directory}")
+        logging.info(f"✓ Created/verified directory: {directory}")
 
 def setup():
     """
@@ -70,26 +70,26 @@ def setup():
     Returns:
         bool: True if setup successful, False otherwise
     """
-    print("\n" + "="*80)
-    print("SETUP: PREPARING ESSENTIAL RESOURCES")
-    print("="*80 + "\n")
+    logging.info("\n" + "="*80)
+    logging.info("SETUP: PREPARING ESSENTIAL RESOURCES")
+    logging.info("="*80 + "\n")
     
     try:
         # Step 1: Create directories
-        print("Step 1/2: Creating directories...")
+        logging.info("Step 1/2: Creating directories...")
         create_directories()
         
         # Step 2: Download datasets
-        print("\nStep 2/2: Downloading datasets...")
+        logging.info("\nStep 2/2: Downloading datasets...")
         fetch_tiny_stories_dataset()
         
-        print("\n" + "="*80)
-        print("✅ SETUP COMPLETE")
-        print("="*80 + "\n")
+        logging.info("\n" + "="*80)
+        logging.info("✅ SETUP COMPLETE")
+        logging.info("="*80 + "\n")
         return True
         
     except Exception as e:
-        print(f"\n✗ Setup failed: {e}")
+        logging.error(f"\n✗ Setup failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -115,15 +115,15 @@ def train_tokenizer(
     Returns:
         Trained GPT4Tokenizer
     """
-    print(f"\n🔧 Training BPE tokenizer...")
-    print(f"   Corpus: {corpus_path}")
-    print(f"   Target vocab size: {vocab_size:,}")
-    
+    logging.info(f"\n🔧 Training BPE tokenizer...")
+    logging.info(f"   Corpus: {corpus_path}")
+    logging.info(f"   Target vocab size: {vocab_size:,}")
+
     # Load corpus
     with open(corpus_path, 'r', encoding='utf-8') as f:
         text = f.read()
     
-    print(f"   Corpus length: {len(text):,} characters")
+    logging.info(f"   Corpus length: {len(text):,} characters")
     
     # Initialize tokenizer
     tokenizer = GPT4Tokenizer()
@@ -132,10 +132,10 @@ def train_tokenizer(
     if special_tokens is None:
         special_tokens = DEFAULT_SPECIAL_TOKENS
     
-    print(f"   Special tokens: {special_tokens}")
+    logging.info(f"   Special tokens: {special_tokens}")
     
     # Train
-    print("\n   Training in progress...")
+    logging.info("\n   Training in progress...")
     tokenizer.train(
         text=text,
         vocab_size=vocab_size,
@@ -143,8 +143,8 @@ def train_tokenizer(
     )
     
     actual_vocab_size = tokenizer.vocab_size()
-    print(f"   ✓ Training complete!")
-    print(f"   Actual vocab size: {actual_vocab_size:,}")
+    logging.info(f"   ✓ Training complete!")
+    logging.info(f"   Actual vocab size: {actual_vocab_size:,}")
     
     return tokenizer
 
@@ -158,7 +158,7 @@ def save_tokenizer(tokenizer: GPT4Tokenizer, vocab_path: str, merges_path: str):
         vocab_path: Path to save vocabulary
         merges_path: Path to save merges
     """
-    print(f"\n💾 Saving tokenizer...")
+    logging.info(f"\n💾 Saving tokenizer...")
     
     # Ensure directory exists
     os.makedirs(os.path.dirname(vocab_path), exist_ok=True)
@@ -166,8 +166,8 @@ def save_tokenizer(tokenizer: GPT4Tokenizer, vocab_path: str, merges_path: str):
     # Save vocab and merges
     tokenizer.save(vocab_path, merges_path)
     
-    print(f"   ✓ Vocabulary saved: {vocab_path}")
-    print(f"   ✓ Merges saved: {merges_path}")
+    logging.info(f"   ✓ Vocabulary saved: {vocab_path}")
+    logging.info(f"   ✓ Merges saved: {merges_path}")
     
     # Save configuration
     config: dict[str,int | list[str] | str] = {
@@ -181,7 +181,7 @@ def save_tokenizer(tokenizer: GPT4Tokenizer, vocab_path: str, merges_path: str):
     with open(TOKENIZER_CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
     
-    print(f"   ✓ Config saved: {TOKENIZER_CONFIG_FILE}")
+    logging.info(f"   ✓ Config saved: {TOKENIZER_CONFIG_FILE}")
 
 
 def run_training_pipeline(
@@ -200,19 +200,19 @@ def run_training_pipeline(
     Returns:
         bool: True if training successful, False otherwise
     """
-    print("\n" + "="*80)
-    print("TRAINING PIPELINE: PREPROCESS + TRAIN + SAVE")
-    print("="*80 + "\n")
+    logging.info("\n" + "="*80)
+    logging.info("TRAINING PIPELINE: PREPROCESS + TRAIN + SAVE")
+    logging.info("="*80 + "\n")
     
     try:
         # Step 1: Preprocess corpus (if needed)
         if preprocess:
-            print("Step 1/3: Preprocessing corpus...")
+            logging.info("Step 1/3: Preprocessing corpus...")
             
             # Check if raw data exists
             if not os.path.exists(TINY_STORIES_TRAIN_PATH):
-                print(f"✗ Training data not found: {TINY_STORIES_TRAIN_PATH}")
-                print("   Run setup first: python setup&run.py --setup")
+                logging.error(f"✗ Training data not found: {TINY_STORIES_TRAIN_PATH}")
+                logging.info("   Run setup first: python setup&run.py --setup")
                 return False
             
             preprocessed_path = preprocess_corpus(
@@ -221,16 +221,16 @@ def run_training_pipeline(
                 max_size_mb=max_corpus_size_mb
             )
         else:
-            print("Step 1/3: Using existing preprocessed corpus...")
+            logging.info("Step 1/3: Using existing preprocessed corpus...")
             preprocessed_path = PRO_TINY_STORIES_TRAIN_PATH
             
             if not os.path.exists(preprocessed_path):
-                print(f"✗ Preprocessed data not found: {preprocessed_path}")
-                print("   Run with --preprocess flag")
+                logging.error(f"✗ Preprocessed data not found: {preprocessed_path}")
+                logging.info("   Run with --preprocess flag")
                 return False
         
         # Step 2: Train tokenizer
-        print("\nStep 2/3: Training tokenizer...")
+        logging.info("\nStep 2/3: Training tokenizer...")
         tokenizer = train_tokenizer(
             corpus_path=preprocessed_path,
             vocab_size=vocab_size,
@@ -238,7 +238,7 @@ def run_training_pipeline(
         )
         
         # Step 3: Save tokenizer
-        print("\nStep 3/3: Saving tokenizer...")
+        logging.info("\nStep 3/3: Saving tokenizer...")
         save_tokenizer(
             tokenizer=tokenizer,
             vocab_path=VOCAB_FILE,
@@ -246,9 +246,9 @@ def run_training_pipeline(
         )
         
         # Test tokenizer
-        print("\n" + "="*80)
-        print("TESTING TOKENIZER")
-        print("="*80 + "\n")
+        logging.info("\n" + "="*80)
+        logging.info("TESTING TOKENIZER")
+        logging.info("="*80 + "\n")
         
         test_texts = [
             "Hello, world! This is a test.",
@@ -259,26 +259,24 @@ def run_training_pipeline(
         for test_text in test_texts:
             encoded = tokenizer.encode(test_text)
             decoded = tokenizer.decode(encoded)
-            print(f"Original: {test_text}")
-            print(f"Encoded:  {encoded[:20]}{'...' if len(encoded) > 20 else ''}")
-            print(f"Decoded:  {decoded}")
-            print(f"Match:    {'✓' if decoded == test_text else '✗'}")
-            print()
+            logging.info(f"Original: {test_text}")
+            logging.info(f"Encoded:  {encoded[:20]}{'...' if len(encoded) > 20 else ''}")
+            logging.info(f"Decoded:  {decoded}")
+            logging.info(f"Match:    {'✓' if decoded == test_text else '✗'}")
         
-        print("="*80)
-        print("✅ TRAINING PIPELINE COMPLETE")
-        print("="*80 + "\n")
+        logging.info("="*80)
+        logging.info("✅ TRAINING PIPELINE COMPLETE")
+        logging.info("="*80 + "\n")
         
-        print(f"📁 Model files saved to: {MODELS_DIR}/")
-        print(f"   - {os.path.basename(VOCAB_FILE)}")
-        print(f"   - {os.path.basename(MERGES_FILE)}")
-        print(f"   - {os.path.basename(TOKENIZER_CONFIG_FILE)}")
-        print()
+        logging.info(f"📁 Model files saved to: {MODELS_DIR}/")
+        logging.info(f"   - {os.path.basename(VOCAB_FILE)}")
+        logging.info(f"   - {os.path.basename(MERGES_FILE)}")
+        logging.info(f"   - {os.path.basename(TOKENIZER_CONFIG_FILE)}")
         
         return True
         
     except Exception as e:
-        print(f"\n✗ Training pipeline failed: {e}")
+        logging.error(f"\n✗ Training pipeline failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -295,11 +293,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python setup&run.py                          # Full pipeline (setup + train)
-  python setup&run.py --setup                  # Only download data
-  python setup&run.py --train                  # Only train (assumes data exists)
-  python setup&run.py --vocab-size 30000       # Train with custom vocab size
-  python setup&run.py --max-size 100           # Train on first 100MB only
+  python src/setup_and_run.py                          # Full pipeline (setup + train)
+  python src/setup_and_run.py --setup                  # Only download data
+  python src/setup_and_run.py --train                  # Only train (assumes data exists)
+  python src/setup_and_run.py --vocab-size 30000       # Train with custom vocab size
+  python src/setup_and_run.py --max-size 100           # Train on first 100MB only
         """
     )
     
@@ -343,9 +341,9 @@ Examples:
         args.train = True
     
     # Header
-    print("\n" + "="*80)
-    print("BPE TOKENIZER - SETUP & TRAINING")
-    print("="*80)
+    logging.info("\n" + "="*80)
+    logging.info("BPE TOKENIZER - SETUP & TRAINING")
+    logging.info("="*80)
     
     success = True
     
@@ -353,7 +351,7 @@ Examples:
     if args.setup:
         success = setup()
         if not success:
-            print("\n❌ Setup failed. Exiting.")
+            logging.error("\n❌ Setup failed. Exiting.")
             sys.exit(1)
     
     # Run training if requested
@@ -364,18 +362,19 @@ Examples:
             max_corpus_size_mb=args.max_size
         )
         if not success:
-            print("\n❌ Training failed. Exiting.")
+            logging.error("\n❌ Training failed. Exiting.")
             sys.exit(1)
     
     # Final message
     if success:
-        print("\n" + "="*80)
-        print("🎉 ALL OPERATIONS COMPLETED SUCCESSFULLY!")
-        print("="*80 + "\n")
+        logging.info("\n" + "="*80)
+        logging.info("🎉 ALL OPERATIONS COMPLETED SUCCESSFULLY!")
+        logging.info("="*80 + "\n")
         sys.exit(0)
     else:
         sys.exit(1)
 
 
 if __name__ == "__main__":
+    logging_setup()
     main()

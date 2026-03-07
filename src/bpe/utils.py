@@ -6,7 +6,17 @@ No state; pure functions used by both training and encoding.
 from collections import Counter, deque
 import os
 from typing import Optional
+import logging
+import sys
 
+def logging_setup():
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
 
 def find_freq_pair(token_ids: list[int], mode: str = "most") -> tuple[int, int] | None:
     """
@@ -21,17 +31,36 @@ def find_freq_pair(token_ids: list[int], mode: str = "most") -> tuple[int, int] 
     """
     if len(token_ids) < 2:
         return None
-
+    logging.debug(f"Finding {mode} frequent pair in token IDs: {token_ids[:5]}{'...' if len(token_ids) > 5 else ''}")
     pairs = Counter(zip(token_ids, token_ids[1:]))
     if not pairs:
+        logging.debug("No pairs found.")
         return None
 
     if mode == "most":
+        logging.debug(f"Most frequent pair: {max(pairs.items(), key=lambda x: x[1])[0]}")
         return max(pairs.items(), key=lambda x: x[1])[0]
     elif mode == "least":
+        logging.debug(f"Least frequent pair: {min(pairs.items(), key=lambda x: x[1])[0]}")
         return min(pairs.items(), key=lambda x: x[1])[0]
-    else:
-        raise ValueError("mode must be 'most' or 'least'.")
+
+
+def count_pairs_in_corpus(corpus: list[list[int]]) -> Counter[tuple[int, int]]:
+    """
+    Count all adjacent pairs across all sequences in corpus efficiently.
+    
+    Args:
+        corpus: List of token ID sequences.
+    
+    Returns:
+        Counter of pair frequencies.
+    """
+    pair_counts: Counter[tuple[int, int]] = Counter()
+    for seq in corpus:
+        if len(seq) >= 2:
+            pair_counts.update(zip(seq, seq[1:]))
+    return pair_counts
+
 
 
 def replace_pair(token_ids: list[int], pair_id: tuple[int, int], new_id: int) -> list[int]:
@@ -97,7 +126,7 @@ def preprocess_corpus(
     Returns:
         Path to preprocessed file
     """
-    print(f"\n📝 Preprocessing: {input_path}")
+    logging.info(f"Preprocessing: {input_path}")
     
     # Check file exists
     if not os.path.exists(input_path):
@@ -105,13 +134,13 @@ def preprocess_corpus(
     
     # Check file size
     file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
-    print(f"   File size: {file_size_mb:.2f} MB")
+    logging.info(f"   File size: {file_size_mb:.2f} MB")
     
     if max_size_mb and file_size_mb > max_size_mb:
-        print(f"   ⚠ File exceeds {max_size_mb} MB limit. Processing first {max_size_mb} MB only.")
+        logging.warning(f"   ⚠ File exceeds {max_size_mb} MB limit. Processing first {max_size_mb} MB only.")
     
     # Read and preprocess
-    print("   Applying filters...")
+    logging.info("   Applying filters...")
     with open(input_path, 'r', encoding='utf-8') as f:
         # Read limited size if specified
         if max_size_mb:
@@ -131,8 +160,8 @@ def preprocess_corpus(
         f.write(''.join(cleaned_text))
     
     output_size_mb = os.path.getsize(output_path) / (1024 * 1024)
-    print(f"   ✓ Saved preprocessed text: {output_path}")
-    print(f"   Output size: {output_size_mb:.2f} MB")
+    logging.info(f"   ✓ Saved preprocessed text: {output_path}")
+    logging.info(f"   Output size: {output_size_mb:.2f} MB")
     
     return output_path
 

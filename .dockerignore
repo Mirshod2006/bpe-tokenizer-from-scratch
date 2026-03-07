@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# Data files (large datasets)
+data/raw/
+data/processed/
+*.csv
+*.json.gz
+
+# Exclude data text files but keep requirements.txt
+data/**/*.txt
+
+# Models (can be mounted separately)
+models/*.json
+*.pt
+*.pth
+*.bin
+*.h5
+*.pkl
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Documentation
+docs/
+README.md
+LICENSE
+*.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Other
+benchmark.py
+benchmark_results.json
+vizualization/
