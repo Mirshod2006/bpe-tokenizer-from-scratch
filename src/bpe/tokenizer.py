@@ -6,6 +6,7 @@ Ties together Vocab, BPETrainer, Encoder, and Decoder.
 from .vocab import Vocab
 from .train import BPETrainer
 from .encode_decode import Encoder, Decoder
+from typing import Iterator, Iterable
 import logging
 
 
@@ -40,12 +41,27 @@ class GPT4Tokenizer:
     #  Training
     # ------------------------------------------------------------------ #
 
-    def train(self, text: str, vocab_size: int, allowed_special: set[str] = {""}):
-        """Train BPE tokenizer from scratch."""
+    def train(
+        self,
+        text_iter: Iterator[str] | Iterable[str],
+        vocab_size: int,
+        allowed_special: set[str] = {""},
+        chunk_size: int = 10_000
+    ):
+        """
+        Train BPE tokenizer from scratch.
+        
+        Args:
+            text_iter: An iterator that yields text chunks.
+                  For large datasets, use an iterator to avoid loading all data into memory.
+            vocab_size: Target vocabulary size.
+            allowed_special: Special tokens to register in vocab.
+            chunk_size: Number of lines to process per chunk when converting string to iterator.
+        """
 
         logging.info("Training BPE tokenizer...")
         self._trainer = BPETrainer(self.vocab)
-        self.bpe_merges = self._trainer.train(text, vocab_size, allowed_special)
+        self.bpe_merges = self._trainer.train(text_iter, vocab_size, allowed_special)
         self._build_components()
 
     # ------------------------------------------------------------------ #

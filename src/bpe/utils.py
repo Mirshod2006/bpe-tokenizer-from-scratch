@@ -5,9 +5,21 @@ No state; pure functions used by both training and encoding.
 
 from collections import Counter, deque
 import os
-from typing import Optional
+import regex
+from tqdm import tqdm
+from typing import Optional, Iterator, Iterable
 import logging
 import sys
+
+GPT4_SPLIT_PATTERN = (
+    r"""'(?i:[sdmt]|ll|ve|re)|"""          # contractions
+    r"""[^\r\n\p{L}\p{N}]?\p{L}+|"""       # words (optionally preceded by non-word)
+    r"""\p{N}{1,3}|"""                      # numbers (up to 3 digits)
+    r""" ?[^\s\p{L}\p{N}]+[\r\n]*|"""       # punctuation / symbols
+    r"""\s*[\r\n]+|"""                      # newlines
+    r"""\s+(?!\S)|"""                       # trailing spaces
+    r"""\s+"""                              # remaining whitespace
+)
 
 def logging_setup():
     logging.basicConfig(
@@ -17,32 +29,6 @@ def logging_setup():
             logging.StreamHandler(sys.stdout)
         ]
     )
-
-def find_freq_pair(token_ids: list[int], mode: str = "most") -> tuple[int, int] | None:
-    """
-    Find the most or least frequent adjacent pair in a token ID sequence.
-
-    Args:
-        token_ids: List of token IDs.
-        mode: 'most' or 'least'.
-
-    Returns:
-        The best pair tuple, or None if no pairs exist.
-    """
-    if len(token_ids) < 2:
-        return None
-    logging.debug(f"Finding {mode} frequent pair in token IDs: {token_ids[:5]}{'...' if len(token_ids) > 5 else ''}")
-    pairs = Counter(zip(token_ids, token_ids[1:]))
-    if not pairs:
-        logging.debug("No pairs found.")
-        return None
-
-    if mode == "most":
-        logging.debug(f"Most frequent pair: {max(pairs.items(), key=lambda x: x[1])[0]}")
-        return max(pairs.items(), key=lambda x: x[1])[0]
-    elif mode == "least":
-        logging.debug(f"Least frequent pair: {min(pairs.items(), key=lambda x: x[1])[0]}")
-        return min(pairs.items(), key=lambda x: x[1])[0]
 
 
 def count_pairs_in_corpus(corpus: list[list[int]]) -> Counter[tuple[int, int]]:
@@ -89,80 +75,96 @@ def replace_pair(token_ids: list[int], pair_id: tuple[int, int], new_id: int) ->
     return replaced
 
 
-def preprocess_text_gpt4(text: str) -> list[str]:
-    """
-    GPT-4 (cl100k_base) style pre-tokenization using regex splitting.
-    Preserves spaces as part of tokens (no Ġ substitution).
+def preprocess_text_gpt4(text: str) -> Iterator[str]:   # takes a string
+    for match in regex.finditer(GPT4_SPLIT_PATTERN, text):
+        yield match.group()
 
-    Returns a list of string "words" to be BPE-encoded individually.
-    """
-    import regex as re  # requires: pip install regex
+def preprocess_chunks(chunks: Iterable[str]) -> Iterator[str]:  # takes an iterator
+    for chunk in chunks:
+        yield from preprocess_text_gpt4(chunk)
 
-    # GPT-4 cl100k_base split pattern (from tiktoken source)
-    GPT4_SPLIT_PATTERN = (
-        r"""'(?i:[sdmt]|ll|ve|re)|"""          # contractions
-        r"""[^\r\n\p{L}\p{N}]?\p{L}+|"""       # words (optionally preceded by non-word)
-        r"""\p{N}{1,3}|"""                      # numbers (up to 3 digits)
-        r""" ?[^\s\p{L}\p{N}]+[\r\n]*|"""       # punctuation / symbols
-        r"""\s*[\r\n]+|"""                      # newlines
-        r"""\s+(?!\S)|"""                       # trailing spaces
-        r"""\s+"""                              # remaining whitespace
-    )
-    return re.findall(GPT4_SPLIT_PATTERN, text)
+def read_corpus_in_chunks(file_path: str, chunk_size: int = 10_000) -> Iterator[str]:
+    """
+    Lazily yield text chunks from a file, chunk_size lines at a time.
+    Never holds more than one chunk in memory.
+    """
+    with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+        chunk_lines: list[str] = []
+        for line in f:
+            chunk_lines.append(line)
+            if len(chunk_lines) >= chunk_size:
+                yield ''.join(chunk_lines)
+                chunk_lines.clear()          # release memory immediately
+        if chunk_lines:
+            yield ''.join(chunk_lines)
+
+def write_corpus_in_chunks(
+    file_path: str,
+    text_iter: Iterable[str],
+    write_batch: int = 5_000,       # flush to disk every N tokens
+    separator: str = "\n",
+) -> int:
+    """
+    Write tokens from a lazy iterator to a file in batches.
+
+    Args:
+        file_path:   Destination path.
+        text_iter:   Any iterator yielding strings (tokens, lines, chunks).
+        write_batch: Number of tokens to buffer before each disk write.
+        separator:   String placed between tokens in output file.
+
+    Returns:
+        Total number of tokens written.
+    """
+    total = 0
+    buffer: list[str] = []
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        for token in text_iter:
+            buffer.append(token)
+            if len(buffer) >= write_batch:
+                f.write(separator.join(buffer) + separator)
+                buffer.clear()
+                total += write_batch
+
+        if buffer:                           # flush remainder
+            f.write(separator.join(buffer))
+            total += len(buffer)
+
+    return total
 
 def preprocess_corpus(
     input_path: str,
     output_path: str,
-    max_size_mb: Optional[int] = None
+    max_size_mb: Optional[int] = 50,
+    chunk_size: int = 10_000,
 ) -> str:
     """
-    Preprocess corpus file using the filtering pipeline.
-    
-    Args:
-        input_path: Path to raw corpus file
-        output_path: Path to save preprocessed corpus
-        max_size_mb: Optional limit on input file size (in MB)
-    
-    Returns:
-        Path to preprocessed file
+    Stream-process a corpus file through the full read → tokenize → write
+    pipeline without ever loading the full file into memory.
+
+    Memory profile: O(chunk_size lines) at any point in time.
     """
-    logging.info(f"Preprocessing: {input_path}")
-    
-    # Check file exists
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input file not found: {input_path}")
-    
-    # Check file size
+
     file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
-    logging.info(f"   File size: {file_size_mb:.2f} MB")
-    
+    logging.info(f"Preprocessing: {input_path}  ({file_size_mb:.2f} MB)")
+
     if max_size_mb and file_size_mb > max_size_mb:
-        logging.warning(f"   ⚠ File exceeds {max_size_mb} MB limit. Processing first {max_size_mb} MB only.")
-    
-    # Read and preprocess
-    logging.info("   Applying filters...")
-    with open(input_path, 'r', encoding='utf-8') as f:
-        # Read limited size if specified
-        if max_size_mb:
-            max_bytes = max_size_mb * 1024 * 1024
-            text = f.read(max_bytes)
-        else:
-            text = f.read()
-    
-    # Apply preprocessing pipeline
-    cleaned_text = preprocess_text_gpt4(
-        text
-    )
-    
-    # Save preprocessed text
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(''.join(cleaned_text))
-    
+        logging.warning(f"File exceeds {max_size_mb} MB limit — continuing anyway.")
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    logging.info('Applying GPT-4 tokenization and writing to: ' + output_path)
+
+    # ── The entire pipeline is lazy — nothing is evaluated until write consumes it
+    chunks    = read_corpus_in_chunks(input_path, chunk_size=chunk_size)
+    tokens    = preprocess_chunks(tqdm(chunks, desc="Reading corpus", unit=" chunks"))          # generator, not a list
+    n_written = write_corpus_in_chunks(output_path, tqdm(tokens, desc="Writing", unit=" tokens"))
+
     output_size_mb = os.path.getsize(output_path) / (1024 * 1024)
-    logging.info(f"   ✓ Saved preprocessed text: {output_path}")
-    logging.info(f"   Output size: {output_size_mb:.2f} MB")
-    
+    logging.info(f"✓ Written {n_written:,} tokens → {output_path}  ({output_size_mb:.2f} MB)")
+
     return output_path
 
 

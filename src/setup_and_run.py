@@ -20,7 +20,7 @@ import sys
 import json
 import argparse
 from typing import Optional
-
+from tqdm import tqdm
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -33,13 +33,13 @@ from bpe.constants import (
     DEFAULT_SPECIAL_TOKENS
 )
 from bpe.download_data import fetch_tiny_stories_dataset
-from bpe.utils import preprocess_corpus, logging_setup
+from bpe.utils import preprocess_corpus, logging_setup, read_corpus_in_chunks
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-MODELS_DIR = "models/"
+MODELS_DIR = "models"
 VOCAB_FILE = os.path.join(MODELS_DIR, "vocab.json")
 MERGES_FILE = os.path.join(MODELS_DIR, "merges.json")
 TOKENIZER_CONFIG_FILE = os.path.join(MODELS_DIR, "tokenizer_config.json")
@@ -102,7 +102,8 @@ def setup():
 def train_tokenizer(
     corpus_path: str,
     vocab_size: int = DEFAULT_VOCAB_SIZE,
-    special_tokens: Optional[set[str]] = None
+    special_tokens: Optional[set[str]] = None,
+    chunk_size: int = 10_000,
 ) -> GPT4Tokenizer:
     """
     Train BPE tokenizer on preprocessed corpus.
@@ -111,35 +112,35 @@ def train_tokenizer(
         corpus_path: Path to preprocessed corpus file
         vocab_size: Target vocabulary size
         special_tokens: Set of special tokens to include
-    
+        chunk_size: Size of text chunks to process at a time
     Returns:
         Trained GPT4Tokenizer
     """
+
+    if not os.path.exists(corpus_path):
+        raise FileNotFoundError(f"Corpus file not found: {corpus_path}")
+    
     logging.info(f"\n🔧 Training BPE tokenizer...")
     logging.info(f"   Corpus: {corpus_path}")
     logging.info(f"   Target vocab size: {vocab_size:,}")
 
-    # Load corpus
-    with open(corpus_path, 'r', encoding='utf-8') as f:
-        text = f.read()
-    
-    logging.info(f"   Corpus length: {len(text):,} characters")
-    
-    # Initialize tokenizer
-    tokenizer = GPT4Tokenizer()
-    
     # Set default special tokens if not provided
     if special_tokens is None:
         special_tokens = DEFAULT_SPECIAL_TOKENS
-    
     logging.info(f"   Special tokens: {special_tokens}")
+
+    # Load corpus
+    chunks = read_corpus_in_chunks(corpus_path, chunk_size=chunk_size)
     
+    # Initialize tokenizer
+    tokenizer = GPT4Tokenizer()
     # Train
     logging.info("\n   Training in progress...")
     tokenizer.train(
-        text=text,
+        text_iter=tqdm(chunks, desc="  Reading corpus", unit=" chunks"),
         vocab_size=vocab_size,
-        allowed_special=special_tokens
+        allowed_special=special_tokens,
+        chunk_size=chunk_size
     )
     
     actual_vocab_size = tokenizer.vocab_size()
