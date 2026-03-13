@@ -1,15 +1,16 @@
 # BPE Tokenizer from Scratch
 
-A complete implementation of Byte Pair Encoding (BPE) tokenizer with comprehensive preprocessing filters and training pipeline.
+A complete implementation of Byte Pair Encoding (BPE) tokenizer with GPT-4 style architecture. Train from scratch on your own data or load OpenAI's pretrained vocab and merges.
 
 ## Features
 
-- ✅ **Complete BPE Algorithm** - Training, encoding, and decoding
-- ✅ **Text Preprocessing** - Unicode normalization, HTML decoding, URL handling, etc.
-- ✅ **GPT-2 Pattern Matching** - Proper pre-tokenization with regex
-- ✅ **TinyStories Dataset** - Automatic download and preprocessing
-- ✅ **Easy Training** - One command to train from scratch
-- ✅ **Model Persistence** - Save and load trained tokenizers
+- **GPT-4 Style BPE** — Byte-level BPE with GPT-4 pre-tokenization pattern
+- **Training** — Train from scratch on raw text with memory-efficient streaming
+- **OpenAI Compatible** — Load pretrained `cl100k_base` / GPT-2 vocab and merges
+- **Encode / Decode** — Full text ↔ token ID conversion with special token support
+- **TinyStories Dataset** — Automatic download and preprocessing
+- **Model Persistence** — Save and load custom trained tokenizers
+- **Benchmarking** — Compare with tiktoken (GPT-2, GPT-3, GPT-4, GPT-4o)
 
 ## Quick Start
 
@@ -41,18 +42,21 @@ python src/setup_and_run.py --vocab-size 30000
 
 # Fast training (first 100MB only)
 python src/setup_and_run.py --max-size 100
+
+# Skip preprocessing (use existing processed data)
+python src/setup_and_run.py --train --no-preprocess --vocab-size 30000
 ```
 
 ### Using Trained Tokenizer
 
 ```python
-from src.bpe.tokenizer import BPETokenizer
+from src.bpe.tokenizer import GPT4Tokenizer
 
 # Load trained model
-tokenizer = BPETokenizer()
+tokenizer = GPT4Tokenizer()
 tokenizer.load(
-    vocab_path="src/models/vocab.json",
-    merges_path="src/models/merges.json"
+    vocab_path="models/vocab.json",
+    merges_path="models/merges.json"
 )
 
 # Encode text
@@ -63,137 +67,143 @@ print(f"Tokens: {tokens}")
 # Decode back
 decoded = tokenizer.decode(tokens)
 print(f"Decoded: {decoded}")
+
+# Vocabulary size
+print(f"Vocab size: {tokenizer.vocab_size()}")
+```
+
+### Loading OpenAI Pretrained
+
+```python
+from src.bpe.tokenizer import GPT4Tokenizer
+
+tokenizer = GPT4Tokenizer()
+tokenizer.load_from_openai(
+    vocab_path="path/to/encoder.json",
+    merges_path="path/to/vocab.bpe"
+)
+tokens = tokenizer.encode("Hello, world!")
 ```
 
 ## Project Structure
 
 ```
-├── setup&run.py              # Main pipeline (setup + train)
-├── test_setup.py             # Quick verification tests
+├── benchmark.py              # Benchmark custom tokenizer vs tiktoken
 ├── requirements.txt          # Python dependencies
+├── tests/
+│   └── test_setup.py         # Quick verification tests
 │
-├── src/bpe/
-│   ├── tokenizer.py         # Main BPE tokenizer class
-│   ├── trainer.py           # Training logic
-│   ├── encoder.py           # Text → Token IDs
-│   ├── decoder.py           # Token IDs → Text
-│   ├── bpe_merger.py        # BPE merge operations
-│   ├── utils.py             # Helper functions
-│   └── constants.py         # Configuration
+├── src/
+│   ├── setup_and_run.py      # Main pipeline (setup + train + save)
+│   └── bpe/
+│       ├── tokenizer.py      # GPT4Tokenizer - main class
+│       ├── train.py          # BPETrainer - BPE training logic
+│       ├── encode_decode.py  # Encoder, Decoder - text ↔ token IDs
+│       ├── vocab.py          # Vocab - token/ID mappings
+│       ├── utils.py          # Preprocessing, bytes_to_unicode, streaming
+│       ├── constants.py      # Paths, special tokens, dataset URLs
+│       └── download_data.py  # Dataset download (TinyStories, WikiText, FineWeb)
 │
-├── scripts/
-│   ├── preprocess_corpus.py # Text preprocessing filters
-│   ├── download_data.py     # Dataset download utilities
-│   └── test_filters.py      # Filter demonstration
+├── notebooks/                # Interactive tutorials
+│   ├── bpe_algorithm_explanation.ipynb  # BPE algorithm walkthrough
+│   ├── karpathy_tokenizer_exp.ipynb     # Karpathy-style tokenization exploration
+│   ├── tokenization_examples.ipynb      # Comparison & edge cases
+│   └── training_visualization.ipynb     # Visualize merge process
 │
 ├── docs/
-│   ├── setup_and_run_guide.md      # Complete usage guide
-│   ├── preprocessing_filters.md    # Filter documentation
-│   └── architecture_decision.md    # Design decisions
+│   ├── setup_and_run_guide.md    # Complete usage instructions
+│   ├── streaming_usage_example.md # Memory-efficient training
+│   └── architecture_decision.md  # Design rationale
 │
 ├── data/
-│   ├── raw/                 # Downloaded datasets
-│   └── processed/           # Preprocessed corpus
+│   ├── raw/                  # Downloaded datasets
+│   └── processed/            # Preprocessed corpus
 │
-└── src/models/              # Trained tokenizer models
+└── models/                   # Trained tokenizer (created after training)
     ├── vocab.json
     ├── merges.json
-    └── tokenizer_config.json
+    ├── tokenizer_config.json
+    └── benchmark_results.json
 ```
 
-## Preprocessing Filters
+## Source Code Overview
 
-The pipeline includes comprehensive text cleaning:
+| Module | Purpose |
+|--------|---------|
+| `tokenizer.py` | `GPT4Tokenizer` — orchestrates Vocab, BPETrainer, Encoder, Decoder |
+| `train.py` | `BPETrainer` — byte-level BPE merges, incremental pair updates |
+| `encode_decode.py` | `Encoder` / `Decoder` — text → IDs, IDs → text (byte-level + merges) |
+| `vocab.py` | `Vocab` — ID↔token mapping, OpenAI format loading |
+| `utils.py` | `preprocess_text_gpt4`, `bytes_to_unicode`, streaming corpus I/O |
+| `constants.py` | Paths, special tokens, dataset URLs |
 
-1. **Unicode Normalization** - Standardize character representations
-2. **HTML Entity Decoding** - `&lt;` → `<`, `&amp;` → `&`
-3. **URL/Email Normalization** - Replace with special tokens
-4. **Control Character Removal** - Strip non-printable characters
-5. **Whitespace Normalization** - Standardize spaces, tabs, newlines
-6. **Pre-tokenization** - GPT-2 style regex pattern splitting
+## Pre-tokenization
 
-See [preprocessing_filters.md](docs/preprocessing_filters.md) for details.
+GPT-4 style regex pattern handles:
+- Contractions (`'s`, `'t`, `'re`, etc.)
+- Words (Unicode letters)
+- Numbers (up to 3 digits)
+- Punctuation and symbols
+- Whitespace and newlines
+
+## Notebooks
+
+| Notebook | Description |
+|----------|-------------|
+| `bpe_algorithm_explanation.ipynb` | Step-by-step BPE algorithm with visualizations |
+| `karpathy_tokenizer_exp.ipynb` | Karpathy-style exploration: Unicode, bytes, merges, GPT-2 patterns, SentencePiece |
+| `tokenization_examples.ipynb` | Tokenization comparisons, TinyStories samples, edge cases |
+| `training_visualization.ipynb` | Visualize vocabulary evolution and merge statistics |
 
 ## Documentation
 
-- **[Setup & Run Guide](docs/setup_and_run_guide.md)** - Complete usage instructions
-- **[Preprocessing Filters](docs/preprocessing_filters.md)** - Text cleaning pipeline
-- **[Architecture Decision](docs/architecture_decision.md)** - Design rationale
+- **[Setup & Run Guide](docs/setup_and_run_guide.md)** — CLI options, troubleshooting
+- **[Streaming Usage](docs/streaming_usage_example.md)** — Memory-efficient training
+- **[Notebooks Overview](docs/notebooks_overview.md)** — Interactive tutorials
+- **[Architecture Decision](docs/architecture_decision.md)** — Design rationale
+
+## Benchmarking
+
+Compare the custom tokenizer with tiktoken models (GPT-2, GPT-3, GPT-4, GPT-4o):
+
+```bash
+# Train first, then benchmark
+python src/setup_and_run.py --max-size 100 --vocab-size 10000
+python benchmark.py
+
+# Custom paths
+python benchmark.py --vocab models/vocab.json --merges models/merges.json
+python benchmark.py --no-tiktoken  # Skip tiktoken, benchmark custom only
+```
 
 ## Requirements
 
 - Python 3.7+
-- regex (Unicode pattern matching)
-- requests (dataset downloading)
+- `regex` — Unicode pattern matching (GPT-4 pre-tokenization)
+- `requests` — Dataset downloading
+- `tqdm` — Progress bars
+- `tiktoken` — For benchmarking (optional)
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Testing
-
-```bash
-# Quick test (no dataset download)
-python tests/test_setup.py
-
-# Test preprocessing filters
-python src/scripts/test_filters.py
-```
-
-## Examples
-
-### Fast Training (Testing)
-
-```bash
-# Train on first 100MB with small vocab (2-3 minutes)
-python src/setup_and_run.py --max-size 100 --vocab-size 10000
-```
-
-### Production Training
-
-```bash
-# Full dataset with 50K vocab (30-60 minutes)
-python src/setup_and_run.py --vocab-size 50000
-```
-
-### Retrain with Different Vocab Size
-
-```bash
-# Reuse preprocessed data, change vocab size only
-python src/setup_and_run.py --train --no-preprocess --vocab-size 30000
-```
-
-## Architecture
-
-**Design Choice**: Single `src/setup_and_run.py` file for the entire pipeline.
-
-**Why?**
-- Sequential operations (setup → preprocess → train → save)
-- Shared configuration
-- Single entry point
-- Simple to understand and maintain
-
-See [architecture_decision.md](docs/architecture_decision.md) for full rationale.
-
 ## Dataset
 
-**TinyStories** - AI-generated short stories dataset
+**TinyStories** — AI-generated short stories for training
 
 - Source: [HuggingFace](https://huggingface.co/datasets/roneneldan/TinyStories)
-- Paper: [TinyStories: How Small Can Language Models Be and Still Speak Coherent English?](https://arxiv.org/abs/2305.07759)
-- Train: ~500MB
-- Validation: ~50MB
+- Paper: [TinyStories: How Small Can Language Models Be?](https://arxiv.org/abs/2305.07759)
+- Train: ~500MB, Validation: ~50MB
+
+Additional datasets supported via `download_data.py`: WikiText-103, FineWeb.
 
 ## License
 
 [MIT License](LICENSE)
 
-## Contributing
-
-Contributions welcome! Please feel free to submit issues or pull requests.
-
 ## Acknowledgments
 
-- [OpenAI GPT-2](https://github.com/openai/gpt-2) - BPE implementation inspiration
-- [TinyStories Dataset](https://huggingface.co/datasets/roneneldan/TinyStories) - Training data
-- [Andrej Karpathy](https://github.com/karpathy) - Educational resources
+- [OpenAI GPT-2/GPT-4](https://github.com/openai/gpt-2) — BPE implementation inspiration
+- [TinyStories Dataset](https://huggingface.co/datasets/roneneldan/TinyStories) — Training data
+- [Andrej Karpathy](https://github.com/karpathy) — Educational resources on tokenization

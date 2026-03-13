@@ -52,9 +52,9 @@ python src/setup_and_run.py --setup
 ### Setup Phase (`--setup`)
 
 1. **Creates Directory Structure**
-   - `data/raw/` - Raw downloaded datasets
-   - `data/processed/` - Preprocessed corpus
-   - `src/models/` - Trained model files
+   - `data/raw/` — Raw downloaded datasets
+   - `data/processed/` — Preprocessed corpus
+   - `models/` — Trained model files
 
 2. **Downloads TinyStories Dataset**
    - Training set (~500MB): `TinyStoriesV2-GPT4-train.txt`
@@ -64,36 +64,33 @@ python src/setup_and_run.py --setup
 ### Training Phase (`--train`)
 
 1. **Preprocessing Corpus**
-   - Unicode normalization (NFC)
-   - HTML entity decoding
-   - URL/email normalization
-   - Control character removal
-   - Whitespace standardization
-   - Saves to `data/processed/`
+   - GPT-4 style regex pre-tokenization
+   - Streaming read/write (memory-efficient)
+   - Saves to `data/processed/tiny_stories_train_processed.txt`
 
 2. **Training BPE Tokenizer**
-   - Initializes vocabulary with characters
-   - Performs byte-pair encoding merges
-   - Builds merge rules
-   - Target vocab size: 50,000 (configurable)
+   - Byte-level base vocabulary (256 bytes)
+   - Word frequency dict + incremental pair updates
+   - Performs BPE merges until target vocab size
+   - Default: 50,000 tokens (configurable)
 
 3. **Saving Model**
-   - `src/models/vocab.json` - Vocabulary mapping
-   - `src/models/merges.json` - BPE merge rules
-   - `src/models/tokenizer_config.json` - Configuration
+   - `models/vocab.json` — Vocabulary mapping (id → token)
+   - `models/merges.json` — BPE merge rules
+   - `models/tokenizer_config.json` — Configuration
 
 4. **Testing**
-   - Runs test encoding/decoding
-   - Verifies tokenizer works correctly
+   - Runs test encoding/decoding on sample texts
+   - Verifies round-trip correctness
 
 ## Output Files
 
 After successful run:
 
 ```
-src/models/
+models/
 ├── vocab.json              # Token ID to string mapping
-├── merges.json             # BPE merge rules
+├── merges.json             # BPE merge rules (pair → new_id)
 └── tokenizer_config.json   # Tokenizer configuration
 
 data/raw/
@@ -101,20 +98,19 @@ data/raw/
 └── TinyStoriesV2-GPT4-valid.txt  # Downloaded validation data
 
 data/processed/
-├── TinyStoriesV2-GPT4-train.txt  # Preprocessed training data
-└── TinyStoriesV2-GPT4-valid.txt  # Preprocessed validation data (optional)
+└── tiny_stories_train_processed.txt  # Preprocessed training data
 ```
 
 ## Using the Trained Tokenizer
 
 ```python
-from src.bpe.tokenizer import BPETokenizer
+from src.bpe.tokenizer import GPT4Tokenizer
 
 # Load trained tokenizer
-tokenizer = BPETokenizer()
+tokenizer = GPT4Tokenizer()
 tokenizer.load(
-    vocab_path="src/models/vocab.json",
-    merges_path="src/models/merges.json"
+    vocab_path="models/vocab.json",
+    merges_path="models/merges.json"
 )
 
 # Encode text
@@ -128,7 +124,7 @@ print(f"Decoded: {decoded}")
 assert decoded == text  # Should match!
 
 # Get vocab size
-print(f"Vocabulary size: {tokenizer.get_vocab_size()}")
+print(f"Vocabulary size: {tokenizer.vocab_size()}")
 ```
 
 ## Performance Tips
@@ -169,7 +165,7 @@ python src/setup_and_run.py --setup
 ### "Preprocessed data not found"
 
 Either:
-1. Run with preprocessing: `python setup&run.py --train`
+1. Run with preprocessing: `python src/setup_and_run.py --train`
 2. Remove `--no-preprocess` flag
 
 ### Out of Memory
@@ -195,7 +191,7 @@ pip install -r requirements.txt
 ## System Requirements
 
 - **Python**: 3.7+
-- **RAM**: 4GB minimum, 8GB+ recommended
+- **RAM**: 4GB minimum, 8GB+ recommended for full dataset
 - **Disk Space**: ~1GB for dataset + models
 - **Internet**: Required for downloading dataset
 
@@ -208,62 +204,44 @@ pip install -r requirements.txt
 ```
 
 Required packages:
-- `regex` - Unicode-aware pattern matching
-- `requests` - Dataset downloading
+- `regex` — Unicode-aware pattern matching
+- `requests` — Dataset downloading
+- `tqdm` — Progress bars
+- `tiktoken` — For benchmarking (optional)
 
 ## Architecture
 
 ### File Structure
 
 ```
-setup&run.py                 # Main orchestration script
-├── setup()                  # Download data, create directories
-└── run_training_pipeline()  # Preprocess, train, save
-
-scripts/
-├── preprocess_corpus.py     # Text preprocessing filters
-└── download_data.py         # Dataset download utilities
-
-src/bpe/
-├── tokenizer.py             # Main BPE tokenizer class
-├── trainer.py               # BPE training logic
-├── encoder.py               # Text to token IDs
-├── decoder.py               # Token IDs to text
-├── bpe_merger.py            # BPE merge operations
-├── utils.py                 # Helper functions
-└── constants.py             # Configuration constants
+src/
+├── setup_and_run.py         # Main orchestration script
+│   ├── setup()              # Create dirs, download data
+│   └── run_training_pipeline()  # Preprocess, train, save
+│
+└── bpe/
+    ├── tokenizer.py         # GPT4Tokenizer
+    ├── train.py             # BPETrainer
+    ├── encode_decode.py     # Encoder, Decoder
+    ├── vocab.py             # Vocab
+    ├── utils.py             # Preprocessing, streaming I/O
+    ├── constants.py         # Paths, URLs
+    └── download_data.py     # Dataset download
 ```
 
-### Design Decision: One File
-
-**Why keep setup and run in one file?**
-
-✅ **Advantages:**
-- Sequential operations (setup → train)
-- Shared configuration
-- Single entry point
-- Clear pipeline flow
-- Easy to understand
-
-**Alternative: Split files**
-
-If you prefer, you can split into:
-- `setup.py` - Setup and data download
-- `train.py` - Training pipeline
-- `config.py` - Shared configuration
+See [architecture_decision.md](architecture_decision.md) for design rationale.
 
 ## Next Steps
 
 After training:
 
-1. **Test tokenizer** - See examples above
-2. **Benchmark performance** - Run `scripts/benchmark.py`
-3. **Try on custom data** - Modify corpus path
-4. **Tune vocabulary size** - Experiment with `--vocab-size`
-5. **Train language model** - Use tokenizer for downstream tasks
+1. **Test tokenizer** — See examples above
+2. **Benchmark** — `python benchmark.py`
+3. **Try notebooks** — Explore `notebooks/` for interactive tutorials
+4. **Custom data** — Modify corpus path in `setup_and_run.py`
 
 ## References
 
 - [TinyStories Paper](https://arxiv.org/abs/2305.07759)
 - [BPE Algorithm](https://arxiv.org/abs/1508.07909)
-- [Preprocessing Filters Documentation](docs/preprocessing_filters.md)
+- [Streaming Usage](streaming_usage_example.md)

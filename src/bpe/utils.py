@@ -136,7 +136,7 @@ def write_corpus_in_chunks(
 def preprocess_corpus(
     input_path: str,
     output_path: str,
-    max_size_mb: Optional[int] = 50,
+    max_size_mb: Optional[int] = 200,
     chunk_size: int = 10_000,
 ) -> str:
     """

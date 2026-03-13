@@ -11,8 +11,11 @@ This script demonstrates:
 import os
 import sys
 from typing import Any
+
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.bpe.utils import logging_setup
-sys.path.insert(0, '/home/mirshod/Desktop/bpe-tokenizer-from-scratch')
 
 
 def test_directory_creation() -> bool:
@@ -50,7 +53,7 @@ def test_preprocessing() -> bool:
     ]
     
     for text in sample_texts:
-        cleaned: list[str] = preprocess_text_gpt4(text)
+        cleaned = list(preprocess_text_gpt4(text))
         print(f"  Input:  {text[:50]}")
         print(f"  Output: {cleaned[:50]}\n")
     
@@ -67,10 +70,10 @@ def test_tokenizer_basic() -> bool:
     # Create tiny training sample
     sample_text = "Hello world! " * 100  # Repeat for enough data
     
-    # Initialize and train
+    # Initialize and train (pass list of chunks as text_iter)
     tokenizer = GPT4Tokenizer()
     tokenizer.train(
-        text=sample_text,
+        text_iter=[sample_text],
         vocab_size=300,  # Small vocab for fast test
         allowed_special={"<|endoftext|>"}
     )
@@ -132,12 +135,12 @@ def main():
     if all_passed:
         print("🎉 ALL TESTS PASSED!")
         print("\nYou can now run:")
-        print("  python setup&run.py --setup     # Download TinyStories dataset")
-        print("  python setup&run.py --train     # Train tokenizer")
-        print("  python setup&run.py             # Full pipeline")
+        print("  python src/setup_and_run.py --setup     # Download TinyStories dataset")
+        print("  python src/setup_and_run.py --train     # Train tokenizer")
+        print("  python src/setup_and_run.py             # Full pipeline")
     else:
         print("❌ SOME TESTS FAILED")
-        print("\nPlease fix the errors above before running setup&run.py")
+        print("\nPlease fix the errors above before running src/setup_and_run.py")
     print("="*80 + "\n")
     
     sys.exit(0 if all_passed else 1)

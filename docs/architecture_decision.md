@@ -1,30 +1,40 @@
 # Architecture Decision: Single File vs. Split Files
 
-## Current Implementation: Single File (✅ Recommended)
+## Current Implementation: Single Pipeline File (✅ Recommended)
 
-The `setup&run.py` file contains both setup and training functionality in **one file**.
+The `src/setup_and_run.py` file contains both setup and training functionality in **one file**.
 
 ### Structure
 
 ```python
-setup&run.py
-├── Configuration (constants, paths)
+setup_and_run.py
+├── Configuration (MODELS_DIR, VOCAB_FILE, paths)
 ├── Setup Functions
 │   ├── create_directories()
-│   ├── download_file()
-│   ├── fetch_tiny_stories_dataset()
-│   └── setup()
-├── Preprocessing Functions
-│   └── preprocess_corpus()
+│   ├── setup() → create_directories() + fetch_tiny_stories_dataset()
+│   └── (uses bpe.download_data)
 ├── Training Functions
-│   ├── train_tokenizer()
+│   ├── train_tokenizer()     # Uses GPT4Tokenizer, read_corpus_in_chunks
 │   ├── save_tokenizer()
-│   └── run_training_pipeline()
+│   └── run_training_pipeline()  # Preprocess, train, save
 └── CLI Interface
     └── main()
 ```
 
-## Why Single File is Recommended
+### Source Module Layout
+
+```
+src/bpe/
+├── tokenizer.py      # GPT4Tokenizer (orchestrator)
+├── train.py          # BPETrainer (BPE merge logic)
+├── encode_decode.py  # Encoder, Decoder
+├── vocab.py          # Vocab (token ↔ ID)
+├── utils.py          # preprocess_text_gpt4, read_corpus_in_chunks, etc.
+├── constants.py      # Paths, URLs, special tokens
+└── download_data.py  # fetch_tiny_stories_dataset, etc.
+```
+
+## Why Single Pipeline File is Recommended
 
 ### ✅ Advantages
 
@@ -39,8 +49,8 @@ setup&run.py
    - Consistent settings across phases
 
 3. **Single Entry Point**
-   - One command for everything: `python setup&run.py`
-   - Clear interface with flags
+   - One command: `python src/setup_and_run.py`
+   - Clear interface with `--setup`, `--train`, `--vocab-size`, etc.
    - Less confusion for users
 
 4. **Simpler Dependencies**
@@ -55,8 +65,8 @@ setup&run.py
 
 ### ⚠️ Limitations
 
-- Larger file (~500 lines)
-- Less modular (but still well-organized)
+- Larger file (~370 lines)
+- Less modular (but BPE logic is in separate modules)
 - Can't import setup separately without CLI
 
 ## Alternative: Split Files
@@ -82,129 +92,54 @@ Split into multiple files if:
 - Building a larger framework
 - Reusing components in different contexts
 
-### Example Split Implementation
-
-**config.py**
-```python
-"""Shared configuration for setup and training."""
-MODELS_DIR = "src/models"
-VOCAB_SIZE = 50000
-# ... other constants
-```
-
-**setup.py**
-```python
-"""Data download and directory setup."""
-from config import *
-
-def setup():
-    create_directories()
-    fetch_datasets()
-    # ...
-```
-
-**train.py**
-```python
-"""Tokenizer training pipeline."""
-from config import *
-from setup import create_directories
-
-def train():
-    preprocess_corpus()
-    train_tokenizer()
-    save_model()
-    # ...
-```
-
-**main.py**
-```python
-"""CLI interface."""
-import setup
-import train
-
-def main():
-    if args.setup:
-        setup.setup()
-    if args.train:
-        train.train()
-```
-
 ## Current Recommendation: Keep Single File
 
-For this project, **keep the single file** because:
+For this project, **keep the single pipeline file** because:
 
-1. **Project Size**: ~500 lines is manageable
+1. **Project Size**: ~370 lines is manageable
 2. **Clear Purpose**: Pipeline has one job
-3. **User Experience**: Simple `setup&run.py` command
-4. **Maintenance**: Easier to maintain cohesive flow
-
-## Migration Path (If Needed Later)
-
-If you decide to split later:
-
-```bash
-# 1. Create new structure
-mkdir -p scripts/pipeline
-
-# 2. Move functions to separate files
-# - setup.py: setup functions
-# - train.py: training functions
-# - config.py: constants
-
-# 3. Create main.py that imports and orchestrates
-
-# 4. Keep setup&run.py as simple wrapper:
-from scripts.pipeline import setup, train, main
-if __name__ == "__main__":
-    main()
-```
+3. **User Experience**: Simple `python src/setup_and_run.py` command
+4. **Maintenance**: BPE logic is already modular in `src/bpe/`
 
 ## Code Organization Best Practices
 
-Current file uses:
-
 ### ✅ Clear Sections
+
 ```python
 # ============================================================================
 # SETUP FUNCTIONS
 # ============================================================================
 
 # ============================================================================
-# PREPROCESSING FUNCTIONS  
+# TRAINING FUNCTIONS
 # ============================================================================
 
 # ============================================================================
-# TRAINING FUNCTIONS
+# COMMAND-LINE INTERFACE
 # ============================================================================
 ```
 
 ### ✅ Focused Functions
+
 - Each function does one thing
 - Clear docstrings
 - Type hints
 - Error handling
 
-### ✅ Logical Flow
-1. Imports
-2. Configuration
-3. Setup functions
-4. Preprocessing functions
-5. Training functions
-6. CLI interface
-
 ### ✅ Reusable Components
-- Functions can be imported: `from setup&run import setup, train_tokenizer`
+
+- `src/bpe/` modules can be imported independently
+- `train_tokenizer()`, `save_tokenizer()` are testable
 - Not tied to CLI
-- Testable independently
 
 ## Conclusion
 
-**Keep it simple**: One file works best for this use case.
+**Keep it simple**: One pipeline file works best for this use case.
 
 The current implementation balances:
 - ✅ Simplicity for users
-- ✅ Maintainability for developers
+- ✅ Maintainability (BPE in separate modules)
 - ✅ Extensibility for future growth
 - ✅ Clarity of purpose
 
-**When to reconsider**: If file grows beyond 1000 lines or complexity increases significantly.
+**When to reconsider**: If `setup_and_run.py` grows beyond 1000 lines or complexity increases significantly.
